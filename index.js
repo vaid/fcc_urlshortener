@@ -3,10 +3,15 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const dns = require("dns");
+const { promisify } = require("util");
 // const URL = require("node:url").URL;
 const { URL } = require("url");
+const { promises } = require("stream");
 
 const app = express();
+
+// Convert dns.lookup into a Promise based function
+const dnsLookup = promisify(dns.lookup);
 
 let url_shorturl_map = [];
 let short_url_id_counter = 8;
@@ -41,29 +46,14 @@ app.get("/api/shorturl/:urlIDval", (req, res) => {
   res.redirect(url_to_redirect_to);
 });
 
-const lookupHostname = (hostname) =>
-  new Promise((resolve, reject) => {
-    dns.lookup(hostname, (err, address, family) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ address, family });
-      }
-    });
-  });
-
 app.post("/api/shorturl", async (req, res) => {
   try {
-    // console.log(req.body);
     const { url } = req.body;
-    // console.log(url);
     let urlID_to_set = 0;
     const url_obj = new URL(url);
-    // console.log("URL() Object: ", url_obj);
     const hostname = url_obj.hostname;
-    // console.log("Hostname: ", hostname);
 
-    const result = await lookupHostname(hostname);
+    await dnsLookup(hostname);
 
     const found_url_shorturl = url_shorturl_map.filter(
       (current) => current.original_url === url
@@ -85,7 +75,7 @@ app.post("/api/shorturl", async (req, res) => {
     if (err.code === "ENOTFOUND") {
       return res.json({ error: "Invalid Hostname" });
     } else if (err.code === "ERR_INVALID_URL") {
-      return res.json({ error: "Invalid URL Format" });
+      return res.json({ error: "Invalid URL" });
     }
     console.error("DNS lookup failed:", err);
     res.json({ error: "Internal Server Error" });
