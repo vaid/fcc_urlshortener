@@ -41,39 +41,55 @@ app.get("/api/shorturl/:urlIDval", (req, res) => {
   res.redirect(url_to_redirect_to);
 });
 
-app.post("/api/shorturl", (req, res) => {
-  // console.log(req.body);
-  const { url } = req.body;
-  // console.log(url);
-  let urlID_to_set = 0;
-  const url_obj = new URL(url);
-  // console.log("URL() Object: ", url_obj);
-  const hostname = url_obj.hostname;
-  // console.log("Hostname: ", hostname);
-
-  dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-    // console.log("DNS Lookup details: ", err, address, family);
-    if (err) {
-      // console.log("ERROR Invalid, setting true: ", isInvalidURL);
-      res.json({ error: "Invalid Hostname" });
-    } else {
-      const found_url_shorturl = url_shorturl_map.filter(
-        (current) => current.original_url === url
-      );
-
-      // Check if host already mapped
-      if (found_url_shorturl.length == 1) {
-        urlID_to_set = found_url_shorturl[0].short_url;
+const lookupHostname = (hostname) =>
+  new Promise((resolve, reject) => {
+    dns.lookup(hostname, (err, address, family) => {
+      if (err) {
+        reject(err);
       } else {
-        urlID_to_set = short_url_id_counter;
-        short_url_id_counter += 1;
-        url_shorturl_map.push({ original_url: url, short_url: urlID_to_set });
+        resolve({ address, family });
       }
-
-      res.json({ original_url: url, short_url: urlID_to_set });
-      console.log(url_shorturl_map);
-    }
+    });
   });
+
+app.post("/api/shorturl", async (req, res) => {
+  try {
+    // console.log(req.body);
+    const { url } = req.body;
+    // console.log(url);
+    let urlID_to_set = 0;
+    const url_obj = new URL(url);
+    // console.log("URL() Object: ", url_obj);
+    const hostname = url_obj.hostname;
+    // console.log("Hostname: ", hostname);
+
+    const result = await lookupHostname(hostname);
+
+    const found_url_shorturl = url_shorturl_map.filter(
+      (current) => current.original_url === url
+    );
+
+    // Check if host already mapped
+    if (found_url_shorturl.length == 1) {
+      urlID_to_set = found_url_shorturl[0].short_url;
+    } else {
+      urlID_to_set = short_url_id_counter;
+      short_url_id_counter += 1;
+      url_shorturl_map.push({ original_url: url, short_url: urlID_to_set });
+    }
+
+    res.json({ original_url: url, short_url: urlID_to_set });
+    console.log(url_shorturl_map);
+  } catch (err) {
+    console.error("--------ERROR CODE: ", err.code);
+    if (err.code === "ENOTFOUND") {
+      return res.json({ error: "Invalid Hostname" });
+    } else if (err.code === "ERR_INVALID_URL") {
+      return res.json({ error: "Invalid URL Format" });
+    }
+    console.error("DNS lookup failed:", err);
+    res.json({ error: "Internal Server Error" });
+  }
 });
 
 app.listen(port, function () {
