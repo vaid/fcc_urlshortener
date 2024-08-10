@@ -5,7 +5,7 @@ const bodyParser = require("body-parser");
 const app = express();
 
 let host_urlId_map = [];
-
+let short_url_id_counter = 8;
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
@@ -24,10 +24,7 @@ app.get("/api/hello", function (req, res) {
 });
 
 app.get("/api/shorturl/:urlIDval", (req, res) => {
-  // console.log("URL ID", req.params.urlIDval);
   const urlID_int = parseInt(req.params.urlIDval);
-  // console.log(host_urlId_map);
-  // console.log(host_urlId_map.filter((current) => current.short_url === urlID_int));
   const host_urlID = host_urlId_map.filter(
     (current) => current.short_url === urlID_int
   );
@@ -43,22 +40,20 @@ app.post("/api/shorturl", (req, res) => {
   console.log(req.body);
   const { url } = req.body;
   console.log(url);
-  let urlIDset = 0;
+  let urlID_to_set = 0;
 
-  if (url === "https://www.youtube.com") {
-    urlIDset = 8;
-  } else if (url === "https://www.google.com") {
-    urlIDset = 9;
-  } else if (url === "https://www.freecodecamp.com") {
-    urlIDset = 10;
-  } else if (url === "https://www.w3schools.com") {
-    urlIDset = 11;
+  const host_urlID = host_urlId_map.filter(
+    (current) => current.original_url === url
+  );
+  if (host_urlID.length == 1) {
+    urlID_to_set = host_urlID[0].short_url;
   } else {
-    urlIDset = 12;
+    urlID_to_set = short_url_id_counter;
+    short_url_id_counter += 1;
+    host_urlId_map.push({ original_url: url, short_url: urlID_to_set });
   }
 
-  host_urlId_map.push({ original_url: url, short_url: urlIDset });
-  res.json({ original_url: url, short_url: urlIDset });
+  res.json({ original_url: url, short_url: urlID_to_set });
   console.log(host_urlId_map);
 });
 
