@@ -2,6 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+const dns = require("dns");
+const url_module = require("url");
+
 const app = express();
 
 let host_urlId_map = [];
@@ -41,6 +44,14 @@ app.post("/api/shorturl", (req, res) => {
   const { url } = req.body;
   console.log(url);
   let urlID_to_set = 0;
+
+  const url_obj = url_module.parse(url);
+  const hostname = url_obj.hostname;
+  console.log("Hostname: ", hostname);
+  console.log("Parsed URL: ", url_obj);
+  // dns.lookup(hostname, (err, address, family) => {
+  //   console.log("DNS Lookup details: ", err, address, family);
+  // });
 
   const host_urlID = host_urlId_map.filter(
     (current) => current.original_url === url
