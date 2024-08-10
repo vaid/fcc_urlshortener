@@ -3,12 +3,14 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const dns = require("dns");
-const url_module = require("url");
+// const URL = require("node:url").URL;
+const { URL } = require("url");
 
 const app = express();
 
 let host_urlId_map = [];
 let short_url_id_counter = 8;
+let isInvalidURL = false;
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
@@ -40,32 +42,46 @@ app.get("/api/shorturl/:urlIDval", (req, res) => {
 });
 
 app.post("/api/shorturl", (req, res) => {
-  console.log(req.body);
+  // console.log(req.body);
   const { url } = req.body;
-  console.log(url);
+  // console.log(url);
   let urlID_to_set = 0;
 
-  const url_obj = url_module.parse(url);
+  const url_obj = new URL(url);
+  // console.log("URL() Object: ", url_obj);
   const hostname = url_obj.hostname;
-  console.log("Hostname: ", hostname);
-  console.log("Parsed URL: ", url_obj);
-  // dns.lookup(hostname, (err, address, family) => {
-  //   console.log("DNS Lookup details: ", err, address, family);
-  // });
-
-  const host_urlID = host_urlId_map.filter(
-    (current) => current.original_url === url
+  // console.log("Hostname: ", hostname);
+  dns.lookup(
+    hostname,
+    {
+      family: 4,
+    },
+    (err, address, family) => {
+      // console.log("DNS Lookup details: ", err, address, family);
+      if (err) {
+        isInvalidURL = true;
+      }
+    }
   );
-  if (host_urlID.length == 1) {
-    urlID_to_set = host_urlID[0].short_url;
-  } else {
-    urlID_to_set = short_url_id_counter;
-    short_url_id_counter += 1;
-    host_urlId_map.push({ original_url: url, short_url: urlID_to_set });
-  }
 
-  res.json({ original_url: url, short_url: urlID_to_set });
-  console.log(host_urlId_map);
+  if (isInvalidURL) {
+    isInvalidURL = false;
+    res.json({ error: "Invalid Hostname" });
+  } else {
+    const host_urlID = host_urlId_map.filter(
+      (current) => current.original_url === url
+    );
+    if (host_urlID.length == 1) {
+      urlID_to_set = host_urlID[0].short_url;
+    } else {
+      urlID_to_set = short_url_id_counter;
+      short_url_id_counter += 1;
+      host_urlId_map.push({ original_url: url, short_url: urlID_to_set });
+    }
+
+    res.json({ original_url: url, short_url: urlID_to_set });
+    console.log(host_urlId_map);
+  }
 });
 
 app.listen(port, function () {
