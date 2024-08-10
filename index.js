@@ -41,48 +41,58 @@ app.get("/api/shorturl/:urlIDval", (req, res) => {
   res.redirect(url_to_redirect_to);
 });
 
-app.post("/api/shorturl", (req, res) => {
-  // console.log(req.body);
-  const { url } = req.body;
-  // console.log(url);
-  let urlID_to_set = 0;
+app.post(
+  "/api/shorturl",
+  (req, res, next) => {
+    // console.log(req.body);
+    const { url } = req.body;
+    // console.log(url);
+    let urlID_to_set = 0;
+    const url_obj = new URL(url);
+    // console.log("URL() Object: ", url_obj);
+    const hostname = url_obj.hostname;
+    // console.log("Hostname: ", hostname);
+    req.url = url;
 
-  const url_obj = new URL(url);
-  // console.log("URL() Object: ", url_obj);
-  const hostname = url_obj.hostname;
-  // console.log("Hostname: ", hostname);
-  dns.lookup(
-    hostname,
-    {
-      family: 4,
-    },
-    (err, address, family) => {
-      // console.log("DNS Lookup details: ", err, address, family);
-      if (err) {
-        isInvalidURL = true;
+    dns.lookup(
+      hostname,
+      {
+        family: 4,
+      },
+      (err, address, family) => {
+        // console.log("DNS Lookup details: ", err, address, family);
+        if (err) {
+          isInvalidURL = true;
+          console.log("ERROR Invalid, setting true: ", isInvalidURL);
+        }
       }
-    }
-  );
-
-  if (isInvalidURL) {
-    isInvalidURL = false;
-    res.json({ error: "Invalid Hostname" });
-  } else {
-    const host_urlID = host_urlId_map.filter(
-      (current) => current.original_url === url
     );
-    if (host_urlID.length == 1) {
-      urlID_to_set = host_urlID[0].short_url;
-    } else {
-      urlID_to_set = short_url_id_counter;
-      short_url_id_counter += 1;
-      host_urlId_map.push({ original_url: url, short_url: urlID_to_set });
-    }
+    next();
+  },
+  (req, res) => {
+    console.log("URL", req.url);
 
-    res.json({ original_url: url, short_url: urlID_to_set });
-    console.log(host_urlId_map);
+    console.log("isInvalidURL: ", isInvalidURL);
+    if (isInvalidURL) {
+      isInvalidURL = false;
+      res.json({ error: "Invalid Hostname" });
+    } else {
+      const host_urlID = host_urlId_map.filter(
+        (current) => current.original_url === req.url
+      );
+      if (host_urlID.length == 1) {
+        urlID_to_set = host_urlID[0].short_url;
+      } else {
+        urlID_to_set = short_url_id_counter;
+        short_url_id_counter += 1;
+        host_urlId_map.push({ original_url: req.url, short_url: urlID_to_set });
+      }
+
+      res.json({ original_url: req.url, short_url: urlID_to_set });
+      console.log(host_urlId_map);
+    }
   }
-});
+);
 
 app.listen(port, function () {
   console.log(`Listening on port ${port}`);
