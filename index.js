@@ -8,9 +8,9 @@ const { URL } = require("url");
 
 const app = express();
 
-let host_urlId_map = [];
+let url_shorturl_map = [];
 let short_url_id_counter = 8;
-let isInvalidURL = false;
+
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
@@ -30,69 +30,51 @@ app.get("/api/hello", function (req, res) {
 
 app.get("/api/shorturl/:urlIDval", (req, res) => {
   const urlID_int = parseInt(req.params.urlIDval);
-  const host_urlID = host_urlId_map.filter(
+  const found_url_shorturl = url_shorturl_map.filter(
     (current) => current.short_url === urlID_int
   );
   let url_to_redirect_to = "";
-  if (host_urlID.length == 1) {
-    url_to_redirect_to = host_urlID[0].original_url;
+  if (found_url_shorturl.length == 1) {
+    url_to_redirect_to = found_url_shorturl[0].original_url;
   }
   console.log(url_to_redirect_to);
   res.redirect(url_to_redirect_to);
 });
 
-app.post(
-  "/api/shorturl",
-  (req, res, next) => {
-    // console.log(req.body);
-    const { url } = req.body;
-    // console.log(url);
-    let urlID_to_set = 0;
-    const url_obj = new URL(url);
-    // console.log("URL() Object: ", url_obj);
-    const hostname = url_obj.hostname;
-    // console.log("Hostname: ", hostname);
-    req.url = url;
+app.post("/api/shorturl", (req, res) => {
+  // console.log(req.body);
+  const { url } = req.body;
+  // console.log(url);
+  let urlID_to_set = 0;
+  const url_obj = new URL(url);
+  // console.log("URL() Object: ", url_obj);
+  const hostname = url_obj.hostname;
+  // console.log("Hostname: ", hostname);
 
-    dns.lookup(
-      hostname,
-      {
-        family: 4,
-      },
-      (err, address, family) => {
-        // console.log("DNS Lookup details: ", err, address, family);
-        if (err) {
-          isInvalidURL = true;
-          console.log("ERROR Invalid, setting true: ", isInvalidURL);
-        }
-      }
-    );
-    next();
-  },
-  (req, res) => {
-    console.log("URL", req.url);
-
-    console.log("isInvalidURL: ", isInvalidURL);
-    if (isInvalidURL) {
-      isInvalidURL = false;
+  dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+    // console.log("DNS Lookup details: ", err, address, family);
+    if (err) {
+      // console.log("ERROR Invalid, setting true: ", isInvalidURL);
       res.json({ error: "Invalid Hostname" });
     } else {
-      const host_urlID = host_urlId_map.filter(
-        (current) => current.original_url === req.url
+      const found_url_shorturl = url_shorturl_map.filter(
+        (current) => current.original_url === url
       );
-      if (host_urlID.length == 1) {
-        urlID_to_set = host_urlID[0].short_url;
+
+      // Check if host already mapped
+      if (found_url_shorturl.length == 1) {
+        urlID_to_set = found_url_shorturl[0].short_url;
       } else {
         urlID_to_set = short_url_id_counter;
         short_url_id_counter += 1;
-        host_urlId_map.push({ original_url: req.url, short_url: urlID_to_set });
+        url_shorturl_map.push({ original_url: url, short_url: urlID_to_set });
       }
 
-      res.json({ original_url: req.url, short_url: urlID_to_set });
-      console.log(host_urlId_map);
+      res.json({ original_url: url, short_url: urlID_to_set });
+      console.log(url_shorturl_map);
     }
-  }
-);
+  });
+});
 
 app.listen(port, function () {
   console.log(`Listening on port ${port}`);
