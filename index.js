@@ -117,8 +117,15 @@ app.get("/api/shorturl/:urlIDval?", async (req, res) => {
 app.post("/api/shorturl", async (req, res) => {
   try {
     const { url } = req.body;
+    console.log("URL sent: ", url);
     const url_obj = new URL(url);
+    console.log("URL object: ", url_obj);
+
+    if (!url_obj.protocol.startsWith("http")) {
+      return res.json({ error: "invalid url" });
+    }
     const hostname = url_obj.hostname;
+    console.log("Hostname sent: ", url);
 
     await dnsLookup(hostname);
 
