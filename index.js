@@ -47,7 +47,6 @@ const createAndSaveURLShortener = async (p_original_url, p_short_url, done) => {
 const findOneByURL = async (p_original_url, done) => {
   try {
     const data = await URLShortener.findOne({ original_url: p_original_url });
-    console.log("Data found: ", data);
     done(null, data);
   } catch (error) {
     console.log("Error in searching data");
@@ -55,6 +54,26 @@ const findOneByURL = async (p_original_url, done) => {
     console.log("------------------------------------");
     done(error);
   }
+};
+
+const findOneWithHighestShortURLId = async () => {
+  return new Promise((resolve, reject) => {
+    URLShortener.find()
+      .sort("short_url")
+      .limit(1)
+      .select({ short_url: 1 })
+      .exec((err, outCome) => {
+        if (err) {
+          console.log("Error in searching highest short url id");
+          console.log(err);
+          console.log("------------------------------------");
+          reject(err);
+        } else {
+          console.log("Data found: ", outCome);
+          resolve(outCome);
+        }
+      });
+  });
 };
 
 // Convert dns.lookup into a Promise based function
@@ -100,7 +119,10 @@ app.post("/api/shorturl", async (req, res) => {
     const hostname = url_obj.hostname;
 
     await dnsLookup(hostname);
-    URLShortener.find().sort();
+
+    const highestID = await findOneWithHighestShortURLId();
+    console.log("Highest ID: ", highestID);
+
     await findOneByURL(url, async (err, data) => {
       if (err) {
         res.json({ error: "Error in searching in mongoDB" });
