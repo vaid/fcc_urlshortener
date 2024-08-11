@@ -69,10 +69,16 @@ const findOneWithHighestShortURLId = async () => {
   }
 };
 
+const findOneByShortURLID = async (p_short_url) => {
+  const data = await URLShortener.findOne({ short_url: p_short_url });
+  if (data != null) {
+    return data.original_url;
+  }
+  return null;
+};
+
 // Convert dns.lookup into a Promise based function
 const dnsLookup = promisify(dns.lookup);
-
-let url_shorturl_map = [];
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -91,17 +97,21 @@ app.get("/api/hello", function (req, res) {
   res.json({ greeting: "hello API" });
 });
 
-app.get("/api/shorturl/:urlIDval", (req, res) => {
-  const urlID_int = parseInt(req.params.urlIDval);
-  const found_url_shorturl = url_shorturl_map.filter(
-    (current) => current.short_url === urlID_int
-  );
-  let url_to_redirect_to = "";
-  if (found_url_shorturl.length == 1) {
-    url_to_redirect_to = found_url_shorturl[0].original_url;
+app.get("/api/shorturl/:urlIDval?", async (req, res) => {
+  if (!req.params.urlIDval) {
+    return res.json({
+      error:
+        "Short URL ID not specified, enter URL e.g. http://localhost:3000/api/shorturl/8",
+    });
   }
-  // console.log(url_to_redirect_to);
-  res.redirect(url_to_redirect_to);
+  const urlID_int = parseInt(req.params.urlIDval);
+  const url_to_redirect_to = await findOneByShortURLID(urlID_int);
+  if (url_to_redirect_to) {
+    console.log("", url_to_redirect_to);
+    res.redirect(url_to_redirect_to);
+  } else {
+    res.json({ error: "Short URL ID not found" });
+  }
 });
 
 app.post("/api/shorturl", async (req, res) => {
