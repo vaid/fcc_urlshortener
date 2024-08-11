@@ -167,7 +167,7 @@ app.post("/api/shorturl", async (req, res) => {
     if (err.code === "ENOTFOUND") {
       return res.json({ error: "Invalid Hostname" });
     } else if (err.code === "ERR_INVALID_URL") {
-      return res.json({ error: "Invalid URL" });
+      return res.json({ error: "invalid url" });
     }
     res.json({ error: "Internal Server Error" });
   }
