@@ -57,30 +57,22 @@ const findOneByURL = async (p_original_url, done) => {
 };
 
 const findOneWithHighestShortURLId = async () => {
-  return new Promise((resolve, reject) => {
-    URLShortener.find()
-      .sort("short_url")
-      .limit(1)
-      .select({ short_url: 1 })
-      .exec((err, outCome) => {
-        if (err) {
-          console.log("Error in searching highest short url id");
-          console.log(err);
-          console.log("------------------------------------");
-          reject(err);
-        } else {
-          console.log("Data found: ", outCome);
-          resolve(outCome);
-        }
-      });
-  });
+  const highestID = await URLShortener.find()
+    .sort({ short_url: -1 })
+    .limit(1)
+    .select({ short_url: 1 })
+    .exec();
+  if (highestID.length > 0) {
+    return highestID[0].short_url;
+  } else {
+    return null;
+  }
 };
 
 // Convert dns.lookup into a Promise based function
 const dnsLookup = promisify(dns.lookup);
 
 let url_shorturl_map = [];
-let short_url_id_counter = 8;
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -120,9 +112,6 @@ app.post("/api/shorturl", async (req, res) => {
 
     await dnsLookup(hostname);
 
-    const highestID = await findOneWithHighestShortURLId();
-    console.log("Highest ID: ", highestID);
-
     await findOneByURL(url, async (err, data) => {
       if (err) {
         res.json({ error: "Error in searching in mongoDB" });
@@ -134,28 +123,32 @@ app.post("/api/shorturl", async (req, res) => {
             short_url: data.short_url,
           });
         } else {
-          await createAndSaveURLShortener(
-            url,
-            short_url_id_counter,
-            (err, data) => {
-              if (err) {
-                res.json({ error: "Error in saving in mongoDB" });
-              } else {
-                if (data) {
-                  console.log("New Record created in MongoDB: ", data);
-                  res.json({
-                    original_url: data.original_url,
-                    short_url: data.short_url,
-                  });
-                  short_url_id_counter += 1;
-                } else
-                  res.json({
-                    error:
-                      "No error, but looks like data is not saved in MongoDB",
-                  });
-              }
+          let highestID = await findOneWithHighestShortURLId();
+          console.log("Highest ID Found: ", highestID);
+          if (highestID == null) {
+            highestID = 8;
+          } else {
+            highestID += 1;
+          }
+          console.log("Highest ID Final: ", highestID);
+
+          await createAndSaveURLShortener(url, highestID, (err, data) => {
+            if (err) {
+              res.json({ error: "Error in saving in mongoDB" });
+            } else {
+              if (data) {
+                console.log("New Record created in MongoDB: ", data);
+                res.json({
+                  original_url: data.original_url,
+                  short_url: data.short_url,
+                });
+              } else
+                res.json({
+                  error:
+                    "No error, but looks like data is not saved in MongoDB",
+                });
             }
-          );
+          });
         }
       }
     });
